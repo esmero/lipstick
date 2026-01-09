@@ -1,4 +1,5 @@
 <?php
+namespace Esmero\Lipstick;
 
 class Color {
 
@@ -46,24 +47,25 @@ class Color {
    * Static Constructor if you only have an Integer representation
    *
    * @param int $integer
-   * @param $whitepoint
+   * @param string $whitepoint
    *
    * @return self
    */
-  public static function newFromInt(int $integer, $whitepoint = "D65")
+  public static function newFromInt(int $integer, string $whitepoint = "D65"):Color
   {
     $hex_color = sprintf("#%02x%02x%02x", ($integer >> 16) & 0xFF, ($integer >> 8) & 0xFF,  $integer & 0xFF);
+    if (!array_key_exists($whitepoint,static::WHITEPOINTS )) {
+      $whitepoint = "D65";
+    }
     return new self($hex_color, $whitepoint);
   }
 
-
   /**
-   * @param array $firstLabColor
-   * @param array $secondLabColor
+   * @param \Esmero\Lipstick\Color $OtherColorObject
    *
    * @return float
    */
-  public function ciede2000DeltaE(color $OtherColorObject)
+  public function ciede2000DeltaE(color $OtherColorObject):float
   {
     $firstLabColor = $this->getCielab();
     $secondLabColor = $OtherColorObject->getCielab();
@@ -134,11 +136,11 @@ class Color {
   /**
    * Provides Gamma Adjustment
    *
-   * @param int $value
+   * @param int|float $value
    *
    * @return float
    */
-  private function rgbToSrgbStep($value): float {
+  private function rgbToSrgbStep(int|float $value): float {
     $value /= 255;
     return $value <= .03928 ? $value / 12.92 : pow(($value + .055) / 1.055, 2.4);
   }
@@ -148,7 +150,7 @@ class Color {
    *
    * @return array
    */
-  private function rgbToSrgb($rgb): array {
+  private function rgbToSrgb(array $rgb): array {
     return [
       'R' => $this->rgbToSrgbStep($rgb['R']),
       'G' => $this->rgbToSrgbStep($rgb['G']),
@@ -156,7 +158,12 @@ class Color {
     ];
   }
 
-  protected function hexToRgb($hex) {
+  /**
+   * @param string $hex
+   *
+   * @return array{R: mixed, G: mixed, B: mixed}
+   */
+  protected function hexToRgb(string $hex):array {
     [$r, $g, $b] = array_map(
       function($c) {
         return hexdec(str_pad($c, 2, $c));
@@ -173,9 +180,9 @@ class Color {
   /**
    * @param array $rgb
    *
-   * @return array
+   * @return array{X: float, Y: float, Z: float}
    */
-  private function srgbToXyz($rgb) {
+  private function srgbToXyz(array $rgb):array {
     $div = 100;
     return [
       'X' => ((41.23865632529916 * $rgb['R']) + (35.75914909206253 * $rgb['G']) + (18.045049120356364 * $rgb['B']))/$div,
@@ -189,7 +196,7 @@ class Color {
    *
    * @return float
    */
-  private function xyzToLabStep($value)
+  private function xyzToLabStep(float $value):float
   {
     return $value > 216 / 24389 ? pow($value, 1 / 3) : 841 * $value / 108 + 4 / 29;
   }
@@ -199,7 +206,7 @@ class Color {
    *
    * @return array
    */
-  private function xyzToLab($xyz) {
+  private function xyzToLab(array $xyz):array {
     //http://en.wikipedia.org/wiki/Illuminant_D65#Definition
     $Xn = static::WHITEPOINTS[$this->whitepoint]['X']/100;
     $Yn = static::WHITEPOINTS[$this->whitepoint]['Y']/100;
@@ -213,7 +220,7 @@ class Color {
     ];
   }
 
-  private function M16($xyz) {
+  private function M16(array $xyz):array {
     // Calculates cone response
     return [
       + 0.401288*$xyz['X'] + 0.650173*$xyz['Y'] - 0.051461*$xyz['Z'],
@@ -227,15 +234,22 @@ class Color {
   }
 
   public function setWhitepoint(string $whitepoint): void {
-    if ($whitepoint !==  $this->whitepoint) {
-      $this->xyz = null;
-      $this->cielab = null;
-      $this->cam16 = null;
+    if ($whitepoint !== $this->whitepoint) {
+      if (array_key_exists($whitepoint,static::WHITEPOINTS )) {
+        $this->xyz = [];
+        $this->cielab = [];
+        $this->cam16 = [];
+        $this->whitepoint = $whitepoint;
+      }
     }
-    $this->whitepoint = $whitepoint;
   }
 
-  private function M16_inv($RGB) {
+  /**
+   * @param array $RGB
+   *
+   * @return float[]
+   */
+  private function M16_inv(array $RGB):array {
     return [
       + 1.862067855087233e+0*$RGB['R'] - 1.011254630531685e+0*$RGB['G'] + 1.491867754444518e-1*$RGB['B'],
       + 3.875265432361372e-1*$RGB['R'] + 6.214474419314753e-1*$RGB['G'] - 8.973985167612518e-3*$RGB['B'],
@@ -243,8 +257,12 @@ class Color {
     ];
   }
 
-
-  private function xyzToCam16($xyz) {
+  /**
+   * @param array $xyz
+   *
+   * @return array{J: float|int, C: float|int, h: float|int, Q: float, M: float|int, s: float|int}
+   */
+  private function xyzToCam16(array $xyz):array {
     // Our XYZ is already capped to 0-1, but here we use all * 100.
     $xyz['X'] = $xyz['X']*100;
     $xyz['Y'] = $xyz['Y']*100;

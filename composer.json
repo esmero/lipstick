@@ -16,7 +16,7 @@
   },
   "autoload": {
     "psr-4": {
-      "esmero\\lipstick\\": "src/"
+      "Esmero\\Lipstick\\": "src/"
     }
   }
 }

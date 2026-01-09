@@ -1,4 +1,6 @@
 <?php
+namespace Esmero\Lipstick;
+use InvalidArgumentException;
 
 class Matrix {
 
@@ -8,8 +10,7 @@ class Matrix {
 
   private array $data;
 
-  public function __construct(array $array)
-  {
+  public function __construct(array $array) {
     $cols = FALSE;
     $vector = FALSE;
     $matrix = FALSE;
@@ -27,7 +28,7 @@ class Matrix {
           throw new InvalidArgumentException('Matrix data supplied has a non numeric component');
         }
         if ($matrix) {
-          return FALSE;
+          throw new InvalidArgumentException('Numeric and Array elements can not be mixed in a Vector');
         }
       }
       else {
@@ -57,18 +58,17 @@ class Matrix {
     $this->rows = $vector ? 1 : $rowcount + 1;
     $this->cols = $vector ? $rowcount + 1 : $cols + 1;
     $this->data = $vector ? [$array] : $array;
-    
   }
 
   public function getData(): array {
     return $this->data;
   }
 
-  public function getRows(): int {
+  public function getRowCount(): int {
     return $this->rows;
   }
 
-  public function getCols(): int {
+  public function getColCount(): int {
     return $this->cols;
   }
 
