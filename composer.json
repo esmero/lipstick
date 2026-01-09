@@ -1,0 +1,22 @@
+{
+  "name": "esmero/lipstick",
+  "description": "Simplistic Color and Color Space PHP classes named after a pretty Pink Flowering Strawberry",
+  "minimum-stability": "stable",
+  "license": "GPL-2.0+",
+  "type": "library",
+  "authors": [
+    {
+      "name": "dpino",
+      "email": "dpino@metro.org"
+    }
+  ],
+  "require": {
+    "php": ">=8.1",
+    "ext-gd": "*"
+  },
+  "autoload": {
+    "psr-4": {
+      "esmero\\lipstick\\": "src/"
+    }
+  }
+}
