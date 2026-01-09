@@ -317,6 +317,16 @@ class Color {
     return ['J' => $J, 'C' => $C, 'h' => $h, 'Q' => $Q, 'M' => $M, 's' => $s];
   }
 
+  private function cam16ToCam16_ucs($cam16) {
+    $J = $cam16['J'];
+    $M = $cam16['M'];
+    $h = $cam16['h'];
+    $h_rad =  fmod($h, 360) *  (M_PI/180);
+    // M_E is the default, but for sakes of JS to PHP being explicit to 'e'/natural
+    $M = log(1 + 0.0228 * $M, M_E) / 0.0228;
+    return ['J' => 1.7 * $J / (1 + 0.007 * $J),  'a' => $M * cos($h_rad), 'b' => $M * sin($h_rad), 'M' => $M, 'h' => $h];
+  }
+
   public function getHex(): string {
     return $this->hex;
   }
@@ -347,6 +357,10 @@ class Color {
       $this->cam16 = $this->xyzToCam16($this->getXyz());
     }
     return $this->cam16;
+  }
+
+  public function getCam16UCS(): array {
+      return $this->cam16ToCam16_ucs($this->getCam16());
   }
 
   public function getRgb(): array {
