@@ -52,3 +52,6 @@ Array
 )
 ```
 
+# Acknowledgments
+
+This (WIP) Library uses Matrices & Math & ways translated from https://observablehq.com/@jrus/cam16 authored by https://github.com/jrus. Many thanks.
