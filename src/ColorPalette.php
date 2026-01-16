@@ -90,7 +90,7 @@ class ColorPalette extends \SplObjectStorage {
         parent::attach($object, $info);
     }
 
-    public function getSorted(int $limit = null) {
+    public function getSorted(?int $limit = null) {
         $sort = new \SplPriorityQueue();
         $sort->setExtractFlags(\SplPriorityQueue::EXTR_BOTH);
         foreach ($this as $pointer) {
