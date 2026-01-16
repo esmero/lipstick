@@ -32,7 +32,7 @@ class ColorPalette extends \SplObjectStorage {
                 }
                 else {
                     $gdimage = imagecreatefromstring($image_content);
-                    static::processImage($gdimage);
+
                 }
             }
             finally {
@@ -40,7 +40,7 @@ class ColorPalette extends \SplObjectStorage {
             }
         }
         if ($gdimage instanceof GdImage) {
-            static::processImage($gdimage);
+            return static::processImage($gdimage);
         }
     }
 
