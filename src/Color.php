@@ -53,6 +53,7 @@ class Color {
    */
   public static function newFromInt(int $integer, string $whitepoint = "D65"):Color
   {
+    // We are ignoring Alpha here.
     $hex_color = sprintf("#%02x%02x%02x", ($integer >> 16) & 0xFF, ($integer >> 8) & 0xFF,  $integer & 0xFF);
     if (!array_key_exists($whitepoint,static::WHITEPOINTS )) {
       $whitepoint = "D65";

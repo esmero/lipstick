@@ -46,6 +46,7 @@ class ColorPalette extends \SplObjectStorage {
 
     public static function processImage(GdImage $image) {
         $self = new self;
+        $temp = [];
         $indexed = !imageistruecolor($image);
         $w = imagesx($image);
         $h = imagesy($image);
@@ -62,23 +63,25 @@ class ColorPalette extends \SplObjectStorage {
                 $colorint = imagecolorat($image, $x, $y);
                 if ($indexed) {
                     //GIF/PNG/ETC
-                    $rgba = imagecolorsforindex($image, $colorint);
-                    $colorint = ($rgba['alpha'] * 16777216) +
-                        ($rgba['red'] * 65536) +
-                        ($rgba['green'] * 256) +
-                        ($rgba['blue']);
-                }
-                $color_cam16_ucs = Color::newFromInt($colorint, 'D65');
-                if ($self->contains($color_cam16_ucs)) {
-                    $frequency = $self->offsetGet($color_cam16_ucs);
-                    $frequency = $frequency + $onepixpercent;
-                    $self->attach($color_cam16_ucs,$frequency);
+                    $rgb = imagecolorsforindex($image, $colorint);
+                    $colorint = ($rgb['red'] << 16) | ($rgb['green'] << 8) | ($rgb['blue']);
                 }
                 else {
-                    $self->attach($color_cam16_ucs,$onepixpercent);
+                    $colorint = $colorint & 0xFFFFFF;
+                }
+                if (isset($temp[$colorint])) {
+                    $frequency = $self->offsetGet($temp[$colorint]);
+                    $frequency = $frequency + $onepixpercent;
+                    $self->offsetSet($temp[$colorint], $frequency);
+                }
+                else {
+                    $temp[$colorint] = Color::newFromInt($colorint, 'D65');
+                    $self->offsetSet($temp[$colorint], $onepixpercent);
                 }
             }
         }
+        unset($temp);
+        $self->rewind();
         return $self;
     }
 
