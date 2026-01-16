@@ -74,6 +74,9 @@ class ColorPalette extends \SplObjectStorage {
                     $frequency = $frequency + $onepixpercent;
                     $self->attach($color_cam16_ucs,$frequency);
                 }
+                else {
+                    $self->attach($color_cam16_ucs,$onepixpercent);
+                }
             }
         }
         return $self;
