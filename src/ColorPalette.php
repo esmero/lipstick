@@ -82,4 +82,29 @@ class ColorPalette extends \SplObjectStorage {
         return $self;
     }
 
+    public function attach($object, $info = NULL): void {
+        if (!$object instanceof Color) {
+            throw new InvalidArgumentException('can only attach Color type Objects to Palette');
+        }
+
+        parent::attach($object, $info);
+    }
+
+    public function getSorted(int $limit = null) {
+        $sort = new \SplPriorityQueue();
+        $sort->setExtractFlags(\SplPriorityQueue::EXTR_BOTH);
+        foreach ($this as $pointer) {
+            $sort->insert($pointer->current(),  $pointer->getInfo() ?? 0);
+        }
+        $cur = 0;
+        while (!$sort->isEmpty() && $sort->valid()) {
+            $item = $sort->extract(); // Gets highest priority item (e.g., Task B)
+            print_r($item);
+            $cur ++;
+            if ($limit && $limit > 0 && $cur == $limit) {
+                break;
+            }
+        }
+    }
+
 }
