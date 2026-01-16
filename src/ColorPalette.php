@@ -94,7 +94,7 @@ class ColorPalette extends \SplObjectStorage {
         $sort = new \SplPriorityQueue();
         $sort->setExtractFlags(\SplPriorityQueue::EXTR_BOTH);
         foreach ($this as $pointer) {
-            $sort->insert($pointer->current(),  $pointer->getInfo() ?? 0);
+            $sort->insert($this->current(),  $this->getInfo() ?? 0);
         }
         $cur = 0;
         while (!$sort->isEmpty() && $sort->valid()) {
@@ -106,5 +106,4 @@ class ColorPalette extends \SplObjectStorage {
             }
         }
     }
-
 }
