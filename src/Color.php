@@ -61,6 +61,24 @@ class Color {
         return new self($hex_color, $whitepoint);
     }
 
+    public static function newFromCam16ucs(array $cam16ucs, string $whitepoint = "D65"):Color {
+            $color = new self('#FFFFF', $whitepoint);
+            $cam16 = $color->cam16ucsToCam16($cam16ucs);
+            print_r($cam16);
+            $xyz =  $color->cam16ToXYZ($cam16);
+            print_r($xyz);
+            return $color;
+
+    }
+
+    private function rgbToHex($rgb) {
+            $rgb['R'] = max(0, min(255,  $rgb['R']));
+            $rgb['G']= max(0, min(255,  $rgb['G']));
+            $rgb['B'] = max(0, min(255,  $rgb['B']));
+            $hex = sprintf("#%02x%02x%02x",$rgb['R'], $rgb['G'], $rgb['B']);
+            return $hex;
+    }
+
     /**
      * @param \Esmero\Lipstick\Color $OtherColorObject
      *
@@ -427,17 +445,26 @@ class Color {
         $h_rad =  fmod($h, 360) *  (M_PI/180);
         // M_E is the default, but for sakes of JS to PHP being explicit to 'e'/natural
         $M = log(1 + 0.0228 * $M, M_E) / 0.0228;
+        // 'a' and 'b' are best for Euclidean distance,
         return ['J' => 1.7 * $J / (1 + 0.007 * $J),  'a' => $M * cos($h_rad), 'b' => $M * sin($h_rad), 'M' => $M, 'h' => $h];
     }
 
     private function cam16ucsToCam16($cam16ucs):array {
+        // we need either a & b or M & h and always J
+        //[J, M, h, a, b]
         $J = $cam16ucs['J'];
-        $M = $cam16ucs['M'];
-        $h = $cam16ucs['h'];
-        $h_rad =  fmod($h, 360) *  (M_PI/180);
-        // M_E is the default, but for sakes of JS to PHP being explicit to 'e'/natural
-        $M = log(1 + 0.0228 * $M, M_E) / 0.0228;
-        return ['J' => 1.7 * $J / (1 + 0.007 * $J),  'a' => $M * cos($h_rad), 'b' => $M * sin($h_rad), 'M' => $M, 'h' => $h];
+        if (!empty($cam16ucs['M']) && !empty($cam16ucs['h'])) {
+            $M = $cam16ucs['M'];
+            $h = $cam16ucs['h'];
+        }
+        elseif (!empty($cam16ucs['a']) && !empty($cam16ucs['b'])) {
+            $M = sqrt($cam16ucs['a'] * $cam16ucs['a'] + $cam16ucs['b'] * $cam16ucs['b']);
+            $h = fmod(rad2deg(atan2($cam16ucs['b'], $cam16ucs['a'])), 360);
+        }
+        $M = (exp($M * 0.0228) - 1) / 0.0228;
+        $J = $J / (1.7 - 0.007 * $J);
+        // also return explicitly the other components as NULL
+        return ['J' => $J, 'M' => $M, 'h' => $h, 'Q' => NULL, 'C' => NULL, 's' => NULL];
     }
 
     public function getHex(): string {
