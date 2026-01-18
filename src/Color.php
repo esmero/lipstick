@@ -335,6 +335,7 @@ class Color {
 
         return [
             'n' => $n,
+            'c' => $c,
             'z' => $z,
             'N_bb' => $N_bb,
             'N_cb' => $N_cb,
