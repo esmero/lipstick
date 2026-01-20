@@ -62,21 +62,26 @@ class Color {
     }
 
     public static function newFromCam16ucs(array $cam16ucs, string $whitepoint = "D65"):Color {
-            $color = new self('#FFFFF', $whitepoint);
-            $cam16 = $color->cam16ucsToCam16($cam16ucs);
-            print_r($cam16);
-            $xyz =  $color->cam16ToXYZ($cam16);
-            print_r($xyz);
-            return $color;
-
+        $color = new self('#FFFFF', $whitepoint);
+        $cam16 = $color->cam16ucsToCam16($cam16ucs);
+        print_r($cam16);
+        $xyz =  $color->cam16ToXYZ($cam16);
+        print_r($xyz);
+        $srgb = $color->xyzToSrgb($xyz);
+        print_r($srgb);
+        $rgb = $color->srgbToRgb($srgb);
+        print_r($rgb);
+        $hex = $color->rgbToHex($rgb);
+        print_r($hex);
+        return $color;
     }
 
     private function rgbToHex($rgb) {
-            $rgb['R'] = max(0, min(255,  $rgb['R']));
-            $rgb['G']= max(0, min(255,  $rgb['G']));
-            $rgb['B'] = max(0, min(255,  $rgb['B']));
-            $hex = sprintf("#%02x%02x%02x",$rgb['R'], $rgb['G'], $rgb['B']);
-            return $hex;
+        $rgb['R'] = max(0, min(255,  $rgb['R']));
+        $rgb['G']= max(0, min(255,  $rgb['G']));
+        $rgb['B'] = max(0, min(255,  $rgb['B']));
+        $hex = sprintf("#%02x%02x%02x",$rgb['R'], $rgb['G'], $rgb['B']);
+        return $hex;
     }
 
     /**
@@ -284,14 +289,6 @@ class Color {
         ];
     }
 
-    private function M16(array $xyz):array {
-        // Calculates cone response
-        return [
-            + 0.401288*$xyz['X'] + 0.650173*$xyz['Y'] - 0.051461*$xyz['Z'],
-            - 0.250268*$xyz['X'] + 1.204414*$xyz['Y'] + 0.045854*$xyz['Z'],
-            - 0.002079*$xyz['X'] + 0.048952*$xyz['Y'] + 0.953127*$xyz['Z']
-        ];
-    }
 
     public function getWhitepoint(): string {
         return $this->whitepoint;
@@ -306,6 +303,15 @@ class Color {
                 $this->whitepoint = $whitepoint;
             }
         }
+    }
+
+    private function M16(array $xyz):array {
+        // Calculates cone response
+        return [
+            + 0.401288*$xyz['X'] + 0.650173*$xyz['Y'] - 0.051461*$xyz['Z'],
+            - 0.250268*$xyz['X'] + 1.204414*$xyz['Y'] + 0.045854*$xyz['Z'],
+            - 0.002079*$xyz['X'] + 0.048952*$xyz['Y'] + 0.953127*$xyz['Z']
+        ];
     }
 
     /**
@@ -407,35 +413,50 @@ class Color {
         return ['J' => $J, 'C' => $C, 'h' => $h, 'Q' => $Q, 'M' => $M, 's' => $s];
     }
     private function cam16ToXYZ(array $jchqms):array {
-
-        if (($jchqms['J'] == 0) || ($jchqms['Q'] == 0)) { return [0, 0, 0]; }
+        // Black
+        if (($jchqms['J'] === 0) || ($jchqms['Q'] === 0)) { return [0, 0, 0]; }
         extract($this->cam16Helpers());
         $D_RGB_inv = array_map(function($dc) { return  1 / $dc;}, $D_RGB);
-        $h_rad = fmod($jchqms['h'], 360) *  (M_PI/180);
+        $h_rad = fmod(deg2rad($jchqms['h']), 2 * M_PI);
         $cos_h = cos($h_rad);
         $sin_h = sin($h_rad);
-        $J_root = sqrt($jchqms['J'])*0.1 || 0.25 * $jchqms['c'] * $jchqms['Q'] / (($A_w + 4) * $F_L_4);
-        $alpha = ($jchqms['s'] == null) ? ($jchqms['C'] || ($jchqms['M'] / $F_L_4) || 0) / $J_root
-            : 0.0004*$jchqms['s']*$jchqms['s']*($A_w + 4) / $jchqms['c'];
+
+        $J_root = sqrt($jchqms['J'])*0.1 /*|| 0.25 * $c * $jchqms['Q'] / (($A_w + 4) * $F_L_4);*/;
+        //$alpha = ($jchqms['s'] === NULL) ? ($jchqms['C'] || ($jchqms['M'] / $F_L_4) || 0) / $J_root
+        //    : 0.0004*$jchqms['s']*$jchqms['s']*($A_w + 4) / $c;
+        $alpha = ($jchqms['M']/$F_L_4) /  $J_root;
+
         $t = pow($alpha * pow(1.64 - pow(0.29, $n), -0.73), 10 / 9);
         $e_t = 0.25 * (cos($h_rad + 2) + 3.8);
-        $A = $A_w * pow($J_root, 2 / $jchqms['c'] / $z);
+        $A = $A_w * pow($J_root, 2 / $c / $z);
         $p_1 = 5e4 / 13 * $N_c * $N_cb * $e_t;
         $p_2 = $A / $N_bb;
+        // $r == gamma
         $r = 23 * ($p_2 + 0.305) * $t / (23*$p_1 + $t * (11*$cos_h + 108*$sin_h));
         $a = $r * $cos_h;
         $b = $r * $sin_h;
-        $denom = 1 / 140;
+        $denom = 1 / 1403;
         $unadapt = function($component) use ($F_L) {
             $exponent = 1/0.42;
             $constant = 100 / $F_L * pow(27.13, $exponent);
             $cabs = abs($component);
             return ($component <=> 0) * $constant * pow($cabs / (400 - $cabs), $exponent);
         };
+
+        $func_mult = function($n1, $n2) {
+            return $n1 * $n2;
+        };
+
+
         $RGB_c = array_map($unadapt, [(460*$p_2 + 451*$a +  288*$b) * $denom,
             (460*$p_2 - 891*$a -  261*$b) * $denom,
             (460*$p_2 - 220*$a - 6300*$b) * $denom]);
-        return $this->M16_inv(MathHelper::matrix_elem_op($RGB_c, $D_RGB_inv, FALSE, $func_mult));
+        $rgb = MathHelper::matrix_elem_op($RGB_c, $D_RGB_inv, FALSE, $func_mult);
+        $rgb_toinv = [];
+        $rgb_toinv['R']= $rgb[0][0];
+        $rgb_toinv['G']= $rgb[0][1];
+        $rgb_toinv['B']= $rgb[0][2];
+        return array_combine(['X','Y','Z'], $this->M16_inv($rgb_toinv));
     }
 
     private function cam16ToCam16_ucs($cam16):array {
