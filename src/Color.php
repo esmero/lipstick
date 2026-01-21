@@ -62,17 +62,18 @@ class Color {
     }
 
     public static function newFromCam16ucs(array $cam16ucs, string $whitepoint = "D65"):Color {
-        $color = new self('#FFFFF', $whitepoint);
+        // Black is beautiful.
+        $color = new self('#000000', $whitepoint);
         $cam16 = $color->cam16ucsToCam16($cam16ucs);
-        print_r($cam16);
+        $color->cam16 = $cam16;
         $xyz =  $color->cam16ToXYZ($cam16);
-        print_r($xyz);
+        $color->xyz = $xyz;
         $srgb = $color->xyzToSrgb($xyz);
-        print_r($srgb);
+        $color->srgb = $srgb;
         $rgb = $color->srgbToRgb($srgb);
-        print_r($rgb);
+        $color->rgb = $rgb;
         $hex = $color->rgbToHex($rgb);
-        print_r($hex);
+        $color->hex = $hex;
         return $color;
     }
 
@@ -178,8 +179,9 @@ class Color {
      * @see https://observablehq.com/@jrus/srgb
      */
     private function srgbToRgbStep(int|float $value): float {
-        $value /= 255;
-        return $value <= .0031308 ? $value * 12.92 : 1.055 * pow($value, 1/24) - 0.055;
+        $value = $value <= 0.0031308 ? $value * 12.92 : 1.055 * pow($value, 1/2.4) - 0.055;
+        $value = max(0, min(1, $value));
+        return (int) round($value * 255);
     }
 
     /**
@@ -248,15 +250,11 @@ class Color {
      * @return array{R: float, G: float, B: float}
      */
     private function xyzToSrgb(array $xyz):array {
-        $mult = 100;
-        // we use 0..1, here we use 0...100
-        $xyz['X'] = $xyz['X'] * $mult;
-        $xyz['Y'] = $xyz['Y'] * $mult;
-        $xyz['Z'] = $xyz['Z'] * $mult;
+        // Round this a bit. components close to cero had E-16 precision. Excesive.
         return [
-            'R' => ((0.03241003232976359 * $xyz['X']) - (0.015373989694887858 * $xyz['Y']) - (0.004986158819963629 * $xyz['Z'])),
-            'G' => (- 0.009692242522025166 * $xyz['X']) + (0.01875929983695176 * $xyz['Y']) + (0.00041554226340084706 * $xyz['Z']),
-            'B' => ((0.0005563941985197545 * $xyz['X']) - (0.0020401120612391 * $xyz['Y']) + (0.010571489771875336 * $xyz['Z'])),
+            'R' => round(3.241003232976359 * $xyz['X'] -1.5373989694887858 * $xyz['Y'] -0.4986158819963629 * $xyz['Z'], 14),
+            'G' => round(-0.9692242522025166 * $xyz['X'] + 1.875929983695176 * $xyz['Y'] + 0.041554226340084706 * $xyz['Z'], 14),
+            'B' => round(0.05563941985197545 * $xyz['X'] -0.20401120612391 * $xyz['Y'] + 1.0571489771875336 * $xyz['Z'], 14),
         ];
     }
 
@@ -451,12 +449,15 @@ class Color {
         $RGB_c = array_map($unadapt, [(460*$p_2 + 451*$a +  288*$b) * $denom,
             (460*$p_2 - 891*$a -  261*$b) * $denom,
             (460*$p_2 - 220*$a - 6300*$b) * $denom]);
+
         $rgb = MathHelper::matrix_elem_op($RGB_c, $D_RGB_inv, FALSE, $func_mult);
         $rgb_toinv = [];
         $rgb_toinv['R']= $rgb[0][0];
         $rgb_toinv['G']= $rgb[0][1];
         $rgb_toinv['B']= $rgb[0][2];
-        return array_combine(['X','Y','Z'], $this->M16_inv($rgb_toinv));
+        // Divide by 100 upfront, so we don't need to modify other functions.
+        $XYZ_base_1 = array_map(function($n) { return $n/100;}, array_combine(['X','Y','Z'], $this->M16_inv($rgb_toinv)));
+        return $XYZ_base_1;
     }
 
     private function cam16ToCam16_ucs($cam16):array {
@@ -527,5 +528,4 @@ class Color {
     public function getRgb(): array {
         return $this->rgb;
     }
-
 }
