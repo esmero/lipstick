@@ -1,0 +1,112 @@
+<?php
+
+namespace Esmero\Lipstick;
+
+use InvalidArgumentException;
+use RuntimeException;
+use GdImage;
+
+class ColorPalette extends \SplObjectStorage {
+
+    public static function newFromURIorFile(string $uriOrfile) {
+        $gdimage = NULL;
+        $image_content = NULL;
+        $isValidURL = filter_var($uriOrfile, FILTER_VALIDATE_URL) !== FALSE;
+        if (!$isValidURL) {
+            if (is_file($uriOrfile) && is_readable($uriOrfile)) {
+                $image_content = file_get_contents($uriOrfile);
+                $gdimage = imagecreatefromstring($image_content);
+            }
+            else {
+                throw new InvalidArgumentException('Passed Image File path is invalid');
+            }
+        }
+        else {
+            $client = curl_init();
+            try {
+                curl_setopt($client, CURLOPT_URL, $uriOrfile);
+                curl_setopt($client, CURLOPT_RETURNTRANSFER, TRUE);
+                $image_content = curl_exec($client);
+                if ($image_content === FALSE) {
+                    throw new RuntimeException('Failed to fetch Image from URL');
+                }
+                else {
+                    $gdimage = imagecreatefromstring($image_content);
+
+                }
+            }
+            finally {
+                curl_close($client);
+            }
+        }
+        if ($gdimage instanceof GdImage) {
+            return static::processImage($gdimage);
+        }
+    }
+
+    public static function processImage(GdImage $image) {
+        $self = new self;
+        $temp = [];
+        $indexed = !imageistruecolor($image);
+        $w = imagesx($image);
+        $h = imagesy($image);
+        $pixels = $w * $h;
+        if ($pixels == 0) {
+            throw new RuntimeException('Loaded Image as has 0 pixels');
+        }
+        $colorint = 0;
+        // used for % per color
+        // pixelcount_per_color * 100 / $pixels;
+        $onepixpercent = 100/$pixels;
+        for ($x = 0; $x < $w; ++$x) {
+            for ($y = 0; $y < $h; ++$y) {
+                $colorint = imagecolorat($image, $x, $y);
+                if ($indexed) {
+                    //GIF/PNG/ETC
+                    $rgb = imagecolorsforindex($image, $colorint);
+                    $colorint = ($rgb['red'] << 16) | ($rgb['green'] << 8) | ($rgb['blue']);
+                }
+                else {
+                    $colorint = $colorint & 0xFFFFFF;
+                }
+                if (isset($temp[$colorint])) {
+                    $frequency = $self->offsetGet($temp[$colorint]);
+                    $frequency = $frequency + $onepixpercent;
+                    $self->offsetSet($temp[$colorint], $frequency);
+                }
+                else {
+                    $temp[$colorint] = Color::newFromInt($colorint, 'D65');
+                    $self->offsetSet($temp[$colorint], $onepixpercent);
+                }
+            }
+        }
+        unset($temp);
+        $self->rewind();
+        return $self;
+    }
+
+    public function attach($object, $info = NULL): void {
+        if (!$object instanceof Color) {
+            throw new InvalidArgumentException('can only attach Color type Objects to Palette');
+        }
+
+        parent::attach($object, $info);
+    }
+
+    public function getSorted(?int $limit = null) {
+        $sort = new \SplPriorityQueue();
+        $sort->setExtractFlags(\SplPriorityQueue::EXTR_BOTH);
+        foreach ($this as $pointer) {
+            $sort->insert($this->current(),  $this->getInfo() ?? 0);
+        }
+        $cur = 0;
+        while (!$sort->isEmpty() && $sort->valid()) {
+            $item = $sort->extract(); // Gets highest priority item (e.g., Task B)
+            print_r($item);
+            $cur ++;
+            if ($limit && $limit > 0 && $cur == $limit) {
+                break;
+            }
+        }
+    }
+}
